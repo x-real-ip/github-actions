@@ -1,0 +1,27 @@
+---
+name: Yaml Linter
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        description:
+          "The path to the directory containing YAML files that you want to
+          lint."
+        required: false
+        type: string
+        default: "."
+
+jobs:
+  yamllint:
+    name: Yaml Linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@main
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML files
+        run: yamllint ${{ inputs.path }}
