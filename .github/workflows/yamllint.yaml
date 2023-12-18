@@ -17,9 +17,6 @@ jobs:
     name: Yaml Linter
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@main
-
       - name: Install yamllint
         run: pip install yamllint
 
