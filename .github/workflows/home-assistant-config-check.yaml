@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@main
 
       - name: Move secret example file
-        run: mv ${{ inputs.secret-file-path }} ${{ inputs.configuration-path }}\secrets.yaml
+        run: mv ${{ inputs.secret-file-path }} ${{ inputs.configuration-path }}/secrets.yaml
 
       - name: Print Home Assistant version
         uses: "docker://homeassistant/home-assistant:${{ inputs.home-assistant-version }}"
