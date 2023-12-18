@@ -3,12 +3,12 @@ name: Home Assistant Configuration Check
 
 on:
   workflow_call:
-    inputs:
-      version:
-        description: "The version tag of Home Assistant to use for the configuration check."
-        required: true
-        type: string
-        default: "stable"
+    # inputs:
+    #   version:
+    #     description: "The version tag of Home Assistant to use for the configuration check."
+    #     required: true
+    #     type: string
+    #     default: "stable"
       # secret-file-path:
       #   description: "The file path to the secret example file."
       #   required: false
@@ -29,11 +29,11 @@ jobs:
         run: mv ./src/config/secrets.yaml.example ./src/config/secrets.yaml
 
       - name: Print Home Assistant version
-        uses: "docker://homeassistant/home-assistant:${{ inputs.version }}"
+        uses: "docker://homeassistant/home-assistant:stable"
         with:
           args: python -m homeassistant --version
 
       - name: Check Home Assistant config
-        uses: "docker://homeassistant/home-assistant:${{ inputs.version }}"
+        uses: "docker://homeassistant/home-assistant:stable"
         with:
           args: hass --script check_config --config ./src/config
