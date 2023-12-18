@@ -5,29 +5,28 @@ on:
   workflow_call:
     inputs:
       home-assistant-version:
-        description:
-          "The version tag of Home Assistant to use for the configuration check."
+        description: "The version tag of Home Assistant to use for the configuration check."
         required: true
         type: string
         default: "stable"
-      secret-file-path:
-        description: "The file path to the secret example file."
-        required: false
-        type: string
-      configuration-path:
-        description: "The path to the Home Assistant configuration directory."
-        required: true
-        type: string
+      # secret-file-path:
+      #   description: "The file path to the secret example file."
+      #   required: false
+      #   type: string
+      # configuration-path:
+      #   description: "The path to the Home Assistant configuration directory."
+      #   required: true
+      #   type: string
 
 jobs:
   home-assistant-config-check:
-    name: "Home Assistant configuration check"
+    name: "Home Assistant Configuration Check"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
 
       - name: Move secret example file
-        run: mv ${{ inputs.secret-file-path }} ${{ inputs.configuration-path }}/secrets.yaml
+        run: mv ./src/config/secrets.yaml.example ./src/config/secrets.yaml
 
       - name: Print Home Assistant version
         uses: "docker://homeassistant/home-assistant:${{ inputs.home-assistant-version }}"
@@ -37,5 +36,4 @@ jobs:
       - name: Check Home Assistant config
         uses: "docker://homeassistant/home-assistant:${{ inputs.home-assistant-version }}"
         with:
-          args:
-            hass --script check_config --config ${{ inputs.configuration-path }}
+          args: hass --script check_config --config ./src/config
