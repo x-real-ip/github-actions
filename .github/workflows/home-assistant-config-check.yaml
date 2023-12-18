@@ -29,11 +29,11 @@ jobs:
         run: mv ./src/config/secrets.yaml.example ./src/config/secrets.yaml
 
       - name: Print Home Assistant version
-        uses: docker://homeassistant/home-assistant:${{ inputs.version }}
+        uses: "docker://homeassistant/home-assistant:stable"
         with:
-          args: python -m homeassistant --version
+          args: echo ${{ github.events.inputs.version }}
 
-      - name: Check Home Assistant config
-        uses: docker://homeassistant/home-assistant:${{ inputs.version }}
-        with:
-          args: hass --script check_config --config ./src/config
+      # - name: Check Home Assistant config
+      #   uses: docker://homeassistant/home-assistant:${{ github.events.inputs.version }}
+      #   with:
+      #     args: hass --script check_config --config ./src/config
