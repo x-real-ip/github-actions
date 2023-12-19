@@ -7,7 +7,7 @@ on:
       publish:
         description: "Publish image to the Container registry"
         type: boolean
-        default: "false"
+        default: false
 
 jobs:
   build-and-push-image:
