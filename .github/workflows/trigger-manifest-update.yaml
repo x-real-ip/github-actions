@@ -1,0 +1,19 @@
+---
+name: trigger-manifest-update
+
+on:
+  workflow_call:
+
+jobs:
+  trigger-manifest-update:
+    name: Trigger Kubernetes Manifest update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger
+        run: |
+          curl -XPOST \
+            -H 'Authorization:token ${{ secrets.GITHUB_TOKEN }}' \
+            -H "Content-Type:application/json" \
+            -H "Accept:application/vnd.github" \
+            https://api.github.com/repos/theautomation/gitops/actions/workflows/update-manifest.yaml/dispatches \
+            --data '{"ref": "main", "inputs": {"owner_and_repo":"${{ github.repository }}","registry":"ghcr.io","image_tag":"${{ github.sha }}"}}'
