@@ -31,7 +31,7 @@ jobs:
       - name: Print Home Assistant version
         uses: "docker://homeassistant/home-assistant:stable"
         with:
-          args: echo ${{ github.events.inputs.version }}
+          args: echo ${{ inputs.version }}
 
       # - name: Check Home Assistant config
       #   uses: docker://homeassistant/home-assistant:${{ github.events.inputs.version }}
