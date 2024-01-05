@@ -1,5 +1,5 @@
 ---
-name: Yaml Linter
+name: YAML Linter
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ on:
 
 jobs:
   yamllint:
-    name: Yaml Linter
+    name: YAML Linter
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
