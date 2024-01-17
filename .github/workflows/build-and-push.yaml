@@ -7,7 +7,11 @@ on:
       publish:
         description: "Publish image to the Container registry"
         type: boolean
-        default: false
+        default: true
+      platform:
+        description: "List of architectures"
+        type: string
+        default: linux/amd64
 
 jobs:
   build-and-push-image:
@@ -40,6 +44,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: ${{ inputs.publish }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: ${{ inputs.platform }}
