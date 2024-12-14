@@ -4,14 +4,11 @@ name: Build and Push Image
 on:
   workflow_call:
     inputs:
-      publish:
-        description: "Publish image to the Container registry"
+      push:
+        description: "Push image to the container registry"
         type: boolean
         default: true
-      platform:
-        description: "List of architectures"
-        type: string
-        default: linux/amd64
+
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}
   IMAGE_TAGS: latest ${{ github.sha }}
@@ -42,6 +39,7 @@ jobs:
       - name: Push to ghcr.io
         id: push-to-ghcr
         uses: redhat-actions/push-to-registry@v2
+        if: ${{ inputs.push == true }}
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ env.IMAGE_TAGS }}
