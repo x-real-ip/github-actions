@@ -1,0 +1,58 @@
+name: Check release
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: "The name of the project to monitor for new releases."
+        required: true
+        type: string
+      target_repo:
+        description: "The GitHub repository to monitor for new releases."
+        required: true
+        type: string
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      NAME: ${{ inputs.name }}
+      ASSIGNEES: x-real-ip
+      LABELS: update,todo
+      TARGET_REPO: ${{ inputs.target_repo }}
+    steps:
+      - name: Get latest release
+        id: get_release
+        run: |
+          RELEASE_API="https://api.github.com/repos/$TARGET_REPO/releases/latest"
+          latest=$(curl -s "$RELEASE_API" | jq -r .tag_name)
+          echo "latest=$latest" >> $GITHUB_OUTPUT
+
+      - name: Check if issue already exists (open or closed)
+        id: issue_check
+        run: |
+          exists=$(gh issue list \
+            --repo "$GH_REPO" \
+            --state all \
+            --search "$NAME release ${{ steps.get_release.outputs.latest }}" \
+            --json number \
+            --jq '.[0].number')
+          echo "exists=$exists" >> $GITHUB_OUTPUT
+
+      - name: Create issue if new release
+        if: steps.issue_check.outputs.exists == ''
+        run: |
+          BODY="### New $NAME release
+
+          A new $NAME release is available: **${{ steps.get_release.outputs.latest }}**
+          Update $NAME to the latest version"
+
+          gh issue create \
+            --title "New $NAME release: ${{ steps.get_release.outputs.latest }}" \
+            --assignee "$ASSIGNEES" \
+            --label "$LABELS" \
+            --body "$BODY"
