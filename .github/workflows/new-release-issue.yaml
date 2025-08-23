@@ -44,13 +44,30 @@ jobs:
         id: get_image
         if: env.TYPE == 'image'
         run: |
-          latest=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://ghcr.io/v2/${TARGET#ghcr.io/}/tags/list" \
-            | jq -r '.tags 
-              | map(select(test("latest|dev|beta|alpha") | not)) 
-              | map(select(. != null)) 
-              | sort 
-              | last')
+          IMAGE_PATH="${TARGET#ghcr.io/}"
+
+          # Get registry token for the package
+          TOKEN=$(curl -s \
+            -u "${{ github.actor }}:${GH_TOKEN}" \
+            "https://ghcr.io/token?scope=repository:${IMAGE_PATH}:pull" \
+            | jq -r .token)
+
+          # Get list of tags
+          tags=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://ghcr.io/v2/${IMAGE_PATH}/tags/list" \
+            | jq -r '.tags | .[]')
+
+          if [ -z "$tags" ]; then
+            echo "No tags found for $IMAGE_PATH"
+            exit 1
+          fi
+
+          # Filter out unwanted ones and pick latest semver
+          latest=$(echo "$tags" \
+            | grep -Ev 'alpha|beta|dev|rc|latest' \
+            | sort -V \
+            | tail -n1)
+
           echo "latest=$latest" >> $GITHUB_OUTPUT
 
       - name: Check if issue already exists
