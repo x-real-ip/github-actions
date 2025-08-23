@@ -3,12 +3,12 @@ name: Check release
 on:
   workflow_call:
     inputs:
-      type:
-        description: "What to check: 'release' or 'image'."
-        required: true
-        type: string
       name:
         description: "Friendly name of the project/image."
+        required: true
+        type: string
+      type:
+        description: "What to check: 'release' or 'image'."
         required: true
         type: string
       target:
