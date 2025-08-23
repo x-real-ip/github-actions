@@ -16,6 +16,16 @@ on:
           "Target repo (org/repo) for releases or ghcr.io/org/image for images."
         required: true
         type: string
+      bump:
+        description: "Enable PR bumping"
+        required: false
+        default: false
+        type: boolean
+      bump_type:
+        description: "What to bump: containerfile, kustomize"
+        required: false
+        default: "containerfile"
+        type: string
 
 jobs:
   check-release:
@@ -23,6 +33,9 @@ jobs:
     permissions:
       issues: write
       packages: read
+    outputs:
+      latest: ${{ steps.issue_check.outputs.latest }}
+      exists: ${{ steps.issue_check.outputs.exists }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -103,3 +116,41 @@ jobs:
             --assignee "$ASSIGNEES" \
             --label "$LABELS" \
             --body "$BODY"
+
+
+  bump-version:
+    needs: check-release
+    if: ${{ inputs.bump && inputs.bump_type == 'containerfile' && needs.check-release.outputs.exists == '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump containerfile
+        run: |
+          latest="${{ needs.check-release.outputs.latest }}"
+          sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" Containerfile
+
+      - name: Commit and push changes
+        run: |
+          latest="${{ needs.check-release.outputs.latest }}"
+          branch="bump-${{ inputs.name }}-${latest}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$branch"
+          git add Containerfile
+          git commit -m "Bump $NAME to $latest"
+          git push origin "$branch"
+
+      - name: Open PR
+        run: |
+          latest="${{ needs.check-release.outputs.latest }}"
+          gh pr create \
+            --title "Bump $NAME to $latest" \
+            --body "Automated bump of $NAME to $latest" \
+            --base main \
+            --head "bump-${{ inputs.name }}-${latest}"
