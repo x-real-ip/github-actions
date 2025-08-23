@@ -139,22 +139,35 @@ jobs:
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           branch="bump-${{ inputs.name }}-${latest}"
-          branch="${branch// /-}"  # replace spaces with -
+          branch="${branch// /-}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git fetch origin "$branch" || true
-          git checkout -b "$branch"
-          git add Containerfile
-          git commit -m "Bump $NAME to $latest"
-          git push --force origin "$branch"
+          git checkout -B "$branch" origin/"$branch" || git checkout -B "$branch"
 
-      - name: Open PR
+          git add Containerfile
+          # try commit, capture exit code
+          git commit -m "chore: bump ${{ inputs.name }} to $latest" || echo "No changes to commit"
+
+          # only push if there are commits
+          if [ -n "$(git diff --cached --name-only)" ]; then
+            git push --force origin "$branch"
+          else
+            echo "No changes to push, skipping git push."
+            exit 0
+          fi
+
+      - name: Create pull request
+        if: success() && steps.commit.outputs.changes_pushed != ''
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
+          branch="bump-${{ inputs.name }}-${latest}"
+          branch="${branch// /-}"
+
           gh pr create \
-            --title "Bump $NAME to $latest" \
-            --body "Automated bump of $NAME to $latest" \
+            --title "Bump ${{ inputs.name }} to $latest" \
+            --body "Automated bump of ${{ inputs.name }} to $latest" \
             --base main \
-            --head "bump-${{ inputs.name }}-${latest}"
+            --head "$branch"
