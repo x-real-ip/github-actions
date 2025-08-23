@@ -148,7 +148,7 @@ jobs:
           git checkout -b "$branch"
           git add Containerfile
           git commit -m "Bump $NAME to $latest"
-          git push origin "$branch"
+          git push --force origin "$branch"
 
       - name: Open PR
         run: |
