@@ -37,8 +37,11 @@ jobs:
         if: env.TYPE == 'release'
         run: |
           RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
-          latest=$(curl -s "$RELEASE_API" | jq -r .tag_name)
+          response=$(curl -s "$RELEASE_API")
+          latest=$(echo "$response" | jq -r .tag_name)
+          url=$(echo "$response" | jq -r .html_url)
           echo "latest=$latest" >> $GITHUB_OUTPUT
+          echo "url=$url" >> $GITHUB_OUTPUT
 
       - name: Get latest image tag
         id: get_image
@@ -87,10 +90,13 @@ jobs:
         if: steps.issue_check.outputs.exists == ''
         run: |
           latest=${{ steps.issue_check.outputs.latest }}
+          url=${{ steps.get_release.outputs.url || '' }}
+
           BODY="### New $NAME $TYPE
 
           A new $NAME $TYPE is available: **$latest**
-          Please update to the latest version."
+
+          [View release notes]($url)"
 
           gh issue create \
             --title "New $NAME $TYPE: $latest" \
