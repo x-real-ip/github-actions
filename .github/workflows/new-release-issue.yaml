@@ -117,25 +117,37 @@ jobs:
             --label "$LABELS" \
             --body "$BODY"
 
-
   bump-version:
     needs: check-release
-    if: ${{ inputs.bump && inputs.bump_type == 'containerfile' && needs.check-release.outputs.exists == '' }}
+    if:
+      ${{ inputs.bump && inputs.bump_type == 'containerfile' &&
+      needs.check-release.outputs.exists == '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bump containerfile
+      - name: Bump version in Containerfile
+        id: bump
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
+          echo "Latest version: $latest"
+
+          # Replace all FROM lines with new version
           sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" Containerfile
 
+          # Check if file changed
+          if git diff --quiet; then
+            echo "no_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "no_changes=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Commit and push changes
+        if: steps.bump.outputs.no_changes == 'false'
+        id: commit
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           branch="bump-${{ inputs.name }}-${latest}"
@@ -144,23 +156,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Create branch from remote if exists, otherwise new branch
           git fetch origin "$branch" || true
           git checkout -B "$branch" origin/"$branch" || git checkout -B "$branch"
 
           git add Containerfile
-          # try commit, capture exit code
           git commit -m "chore: bump ${{ inputs.name }} to $latest" || echo "No changes to commit"
-
-          # only push if there are commits
-          if [ -n "$(git diff --cached --name-only)" ]; then
-            git push --force origin "$branch"
-          else
-            echo "No changes to push, skipping git push."
-            exit 0
-          fi
+          git push --force origin "$branch"
 
       - name: Create pull request
-        if: success() && steps.commit.outputs.changes_pushed != ''
+        if: steps.bump.outputs.no_changes == 'false'
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           branch="bump-${{ inputs.name }}-${latest}"
