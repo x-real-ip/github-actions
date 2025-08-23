@@ -3,12 +3,17 @@ name: Check release
 on:
   workflow_call:
     inputs:
-      name:
-        description: "The name of the project to monitor for new releases."
+      type:
+        description: "What to check: 'release' or 'image'."
         required: true
         type: string
-      target_repo:
-        description: "The GitHub repository to monitor for new releases."
+      name:
+        description: "Friendly name of the project/image."
+        required: true
+        type: string
+      target:
+        description:
+          "Target repo (org/repo) for releases or ghcr.io/org/image for images."
         required: true
         type: string
 
@@ -17,42 +22,61 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      packages: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       NAME: ${{ inputs.name }}
       ASSIGNEES: x-real-ip
       LABELS: update,todo
-      TARGET_REPO: ${{ inputs.target_repo }}
+      TYPE: ${{ inputs.type }}
+      TARGET: ${{ inputs.target }}
     steps:
       - name: Get latest release
         id: get_release
+        if: env.TYPE == 'release'
         run: |
-          RELEASE_API="https://api.github.com/repos/$TARGET_REPO/releases/latest"
+          RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
           latest=$(curl -s "$RELEASE_API" | jq -r .tag_name)
           echo "latest=$latest" >> $GITHUB_OUTPUT
 
-      - name: Check if issue already exists (open or closed)
+      - name: Get latest image tag
+        id: get_image
+        if: env.TYPE == 'image'
+        run: |
+          latest=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://ghcr.io/v2/${TARGET#ghcr.io/}/tags/list" \
+            | jq -r '.tags 
+              | map(select(test("latest|dev|beta|alpha") | not)) 
+              | map(select(. != null)) 
+              | sort 
+              | last')
+          echo "latest=$latest" >> $GITHUB_OUTPUT
+
+      - name: Check if issue already exists
         id: issue_check
         run: |
+          latest=$([[ "$TYPE" == "release" ]] && echo "${{ steps.get_release.outputs.latest }}" || echo "${{ steps.get_image.outputs.latest }}")
           exists=$(gh issue list \
             --repo "$GH_REPO" \
             --state all \
-            --search "$NAME release ${{ steps.get_release.outputs.latest }}" \
+            --search "$NAME $TYPE $latest" \
             --json number \
             --jq '.[0].number')
+          echo "latest=$latest" >> $GITHUB_OUTPUT
           echo "exists=$exists" >> $GITHUB_OUTPUT
 
-      - name: Create issue if new release
+      - name: Create issue if new
         if: steps.issue_check.outputs.exists == ''
         run: |
-          BODY="### New $NAME release
+          latest=${{ steps.issue_check.outputs.latest }}
+          BODY="### New $NAME $TYPE
 
-          A new $NAME release is available: **${{ steps.get_release.outputs.latest }}**
-          Update $NAME to the latest version"
+          A new $NAME $TYPE is available: **$latest**
+          Please update to the latest version."
 
           gh issue create \
-            --title "New $NAME release: ${{ steps.get_release.outputs.latest }}" \
+            --title "New $NAME $TYPE: $latest" \
             --assignee "$ASSIGNEES" \
             --label "$LABELS" \
             --body "$BODY"
