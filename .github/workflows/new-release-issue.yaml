@@ -64,7 +64,7 @@ jobs:
 
           # Filter out unwanted ones and pick latest semver
           latest=$(echo "$tags" \
-            | grep -Ev 'alpha|beta|dev|rc|latest' \
+            | grep -Ev 'alpha|beta|dev|rc|latest|next|master' \
             | sort -V \
             | tail -n1)
 
