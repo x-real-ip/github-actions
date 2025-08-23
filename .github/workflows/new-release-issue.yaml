@@ -137,6 +137,7 @@ jobs:
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           branch="bump-${{ inputs.name }}-${latest}"
+          branch="${branch// /-}"  # replace spaces with -
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
