@@ -41,7 +41,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       NAME: ${{ inputs.name }}
       ASSIGNEES: x-real-ip
-      LABELS: update,todo
+      LABELS: update
       TYPE: ${{ inputs.type }}
       TARGET: ${{ inputs.target }}
     steps:
