@@ -156,5 +156,5 @@ jobs:
             Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
           add-paths: |
             Containerfile
-          assignees: "$ASSIGNEES"
-          labels: "$LABELS"
+          assignees: ${{ env.ASSIGNEES }}
+          labels: ${{ env.LABELS }}
