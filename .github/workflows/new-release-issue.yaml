@@ -26,6 +26,10 @@ on:
         required: false
         default: "containerfile"
         type: string
+    secrets:
+      PAT:
+        description: "Personal access token for PR creation"
+        required: true
 
 jobs:
   check-release:
@@ -127,7 +131,7 @@ jobs:
       contents: write
       pull-requests: write
     env:
-      GH_TOKEN: ${{ secrets.PAT }} 
+      GH_TOKEN: ${{ secrets.PAT }}
     steps:
       - uses: actions/checkout@v4
 
