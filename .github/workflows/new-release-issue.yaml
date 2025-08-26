@@ -149,9 +149,10 @@ jobs:
             bump-${{ inputs.name }}-${{ needs.check-release.outputs.latest }}
           title:
             Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
-          body:
-            Automated bump of ${{ inputs.name }} to ${{
-            needs.check-release.outputs.latest }}
+          body: |
+            Automated bump of ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
+
+            Ref: #${{ needs.check-release.outputs.issue_number }}
           commit-message:
             Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
           add-paths: |
