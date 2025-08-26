@@ -29,7 +29,7 @@ on:
     secrets:
       PAT:
         description: "Personal access token for PR creation"
-        required: true
+        required: false
 
 jobs:
   check-release:
@@ -123,62 +123,38 @@ jobs:
 
   bump-version:
     needs: check-release
-    if:
-      ${{ inputs.bump && inputs.bump_type == 'containerfile' &&
-      needs.check-release.outputs.exists == '' }}
+    if: inputs.bump && needs.check-release.outputs.exists == ''
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     env:
-      GH_TOKEN: ${{ secrets.PAT }}
+      ASSIGNEES: x-real-ip
+      LABELS: update
     steps:
       - uses: actions/checkout@v4
 
       - name: Bump version in Containerfile
-        id: bump
+        if: inputs.bump_type == 'containerfile'
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           echo "Latest version: $latest"
-
-          # Replace all FROM lines with new version
           sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" Containerfile
 
-          # Check if file changed
-          if git diff --quiet; then
-            echo "no_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "no_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit and push changes
-        if: steps.bump.outputs.no_changes == 'false'
-        id: commit
-        run: |
-          latest="${{ needs.check-release.outputs.latest }}"
-          branch="bump-${{ inputs.name }}-${latest}"
-          branch="${branch// /-}"
-
-          git config user.name "x-real-ip"
-          git config user.email "c.github@stamx.nl"
-
-          # Create branch from remote if exists, otherwise new branch
-          git fetch origin "$branch" || true
-          git checkout -B "$branch" origin/"$branch" || git checkout -B "$branch"
-
-          git add Containerfile
-          git commit -m "Bump ${{ inputs.name }} to $latest" || echo "No changes to commit"
-          git push --force origin "$branch"
-
-      - name: Create pull request
-        if: steps.bump.outputs.no_changes == 'false'
-        run: |
-          latest="${{ needs.check-release.outputs.latest }}"
-          branch="bump-${{ inputs.name }}-${latest}"
-          branch="${branch// /-}"
-
-          gh pr create \
-            --title "Bump ${{ inputs.name }} to $latest" \
-            --body "Automated bump of ${{ inputs.name }} to $latest" \
-            --base main \
-            --head "$branch"
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.PAT }}
+          branch:
+            bump-${{ inputs.name }}-${{ needs.check-release.outputs.latest }}
+          title:
+            Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
+          body:
+            Automated bump of ${{ inputs.name }} to ${{
+            needs.check-release.outputs.latest }}
+          commit-message:
+            Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
+          add-paths: |
+            Containerfile
+          assignees: "$ASSIGNEES"
+          labels: "$LABELS"
