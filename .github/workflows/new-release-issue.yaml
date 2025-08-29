@@ -140,13 +140,20 @@ jobs:
 
           [View release notes]($url)"
 
-          ISSUE_NUMBER=$(gh issue create \
+          # Create the issue
+          gh issue create \
             --title "New $NAME $TYPE: $latest" \
             --assignee "$ASSIGNEES" \
             --label "$LABELS" \
-            --body "$BODY" \
+            --body "$BODY"
+
+          # Get the issue number of the newly created issue
+          ISSUE_NUMBER=$(gh issue list \
+            --repo $GH_REPO \
+            --state open \
+            --search "$NAME $TYPE $latest" \
             --json number \
-            --jq '.number')
+            --jq '.[0].number')
 
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
