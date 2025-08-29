@@ -59,8 +59,8 @@ jobs:
         id: get_release
         if: env.TYPE == 'release'
         run: |
-          RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
           TARGET="${TARGET#ghcr.io/}"   # remove ghcr.io/
+          RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
           response=$(curl -s "$RELEASE_API")
           latest=$(echo "$response" | jq -r .tag_name)
           url=$(echo "$response" | jq -r .html_url)
