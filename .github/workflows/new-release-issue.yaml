@@ -97,8 +97,8 @@ jobs:
           # Filter unwanted tags, pick latest semver
           latest=$(echo "$tags" \
             | grep -Ev 'alpha|beta|dev|rc|latest|next|master|sha|commit|test' \
-            | sort -Vr \
-            | head -n1)
+            | sort -V \
+            | tail -n1)
 
           if [ -z "$latest" ]; then
             echo "No suitable tags found for $TARGET after filtering"
