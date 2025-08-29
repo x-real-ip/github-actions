@@ -67,6 +67,11 @@ jobs:
           echo "latest=$latest" >> $GITHUB_OUTPUT
           echo "url=$url" >> $GITHUB_OUTPUT
 
+          if [[ -z "$latest" || "$latest" == "null" ]]; then
+            echo "Release is null"
+            exit 1
+          fi
+
       - name: Get latest image tag
         id: get_image
         if: env.TYPE == 'image'
