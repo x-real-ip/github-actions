@@ -69,25 +69,39 @@ jobs:
         id: get_image
         if: env.TYPE == 'image'
         run: |
-          # Extract org and image from TARGET (ghcr.io/org/image)
+          # Extract org/user and image from TARGET (ghcr.io/org/image)
           TARGET_NO_PREFIX="${TARGET#ghcr.io/}"   # remove ghcr.io/
-          ORG="${TARGET_NO_PREFIX%%/*}"           # org = part before first /
+          OWNER="${TARGET_NO_PREFIX%%/*}"         # owner = part before first /
           IMAGE="${TARGET_NO_PREFIX#*/}"          # image = part after first /
 
-          echo "Org: $ORG, Image: $IMAGE"
+          echo "Owner: $OWNER, Image: $IMAGE"
 
-          # Use gh API to get all versions, filter out unwanted tags, sort, pick latest
-          latest=$(gh api \
-            -H "Accept: application/vnd.github.v3+json" \
-            "/orgs/$ORG/packages/container/$IMAGE/versions" \
-            --paginate \
-            --jq '.[].metadata.container.tags[]' \
+          # Try /orgs/ first
+          resp=$(gh api -H "Accept: application/vnd.github.v3+json" \
+            "/orgs/$OWNER/packages/container/$IMAGE/versions" 2>/dev/null) || true
+
+          # If empty or Not Found, fallback to /users/
+          if [ -z "$resp" ] || [[ "$resp" == *"Not Found"* ]]; then
+            resp=$(gh api -H "Accept: application/vnd.github.v3+json" \
+              "/users/$OWNER/packages/container/$IMAGE/versions")
+          fi
+
+          # Extract all tags
+          tags=$(echo "$resp" | jq -r '.[].metadata.container.tags[]')
+
+          if [ -z "$tags" ]; then
+            echo "No tags found for $TARGET"
+            exit 1
+          fi
+
+          # Filter unwanted tags, pick latest semver
+          latest=$(echo "$tags" \
             | grep -Ev 'alpha|beta|dev|rc|latest|next|master|sha|commit|test' \
-            | sort -V \
-            | tail -n1)
+            | sort -Vr \
+            | head -n1)
 
           if [ -z "$latest" ]; then
-            echo "No suitable tags found for $TARGET"
+            echo "No suitable tags found for $TARGET after filtering"
             exit 1
           fi
 
