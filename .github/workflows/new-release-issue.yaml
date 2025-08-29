@@ -151,7 +151,7 @@ jobs:
         uses: imranismail/setup-kustomize@v2
       - run: |
           latest="${{ needs.check-release.outputs.latest }}"
-          cd manifests/${{ inputs.name }}/kustomize/overlay
+          cd manifests/${{ inputs.name }}/overlay
           for image in ${{ inputs.image }}; do
             echo "Updating $image to version $latest"
             kustomize edit set image $image=$image:$latest
