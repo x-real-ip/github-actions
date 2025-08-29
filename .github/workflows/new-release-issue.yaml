@@ -142,20 +142,6 @@ jobs:
 
           [View release notes]($url)"
 
-          # Find older issues
-          OLD_ISSUES=$(gh issue list \
-            --repo "$GH_REPO" \
-            --state open \
-            --search "$NAME $TYPE" \
-            --json number \
-            --jq '.[].number')
-
-          # Close older issues
-          for issue in $OLD_ISSUES; do
-            echo "Closing issue #$issue"
-            gh issue close "$issue" --repo "$GH_REPO"
-          done
-
           # Create the issue
           gh issue create \
             --title "New $NAME $TYPE: $latest" \
