@@ -69,44 +69,43 @@ jobs:
         id: get_image
         if: env.TYPE == 'image'
         run: |
-          IMAGE_PATH="${TARGET#ghcr.io/}"
+          # Extract org and image from TARGET (ghcr.io/org/image)
+          TARGET_NO_PREFIX="${TARGET#ghcr.io/}"   # remove ghcr.io/
+          ORG="${TARGET_NO_PREFIX%%/*}"           # org = part before first /
+          IMAGE="${TARGET_NO_PREFIX#*/}"          # image = part after first /
 
-          # Get registry token for the package
-          TOKEN=$(curl -s \
-            -u "${{ github.actor }}:${GH_TOKEN}" \
-            "https://ghcr.io/token?scope=repository:${IMAGE_PATH}:pull" \
-            | jq -r .token)
+          echo "Org: $ORG, Image: $IMAGE"
 
-          # Get list of tags
-          tags=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://ghcr.io/v2/${IMAGE_PATH}/tags/list" \
-            | jq -r '.tags | .[]')
+          # Use gh API to get all versions, filter out unwanted tags, sort, pick latest
+          latest=$(gh api \
+            -H "Accept: application/vnd.github.v3+json" \
+            "/orgs/$ORG/packages/container/$IMAGE/versions" \
+            --paginate \
+            --jq '.[].metadata.container.tags[]' \
+            | grep -Ev 'alpha|beta|dev|rc|latest|next|master|sha|commit|test' \
+            | sort -V \
+            | tail -n1)
 
-          if [ -z "$tags" ]; then
-            echo "No tags found for $IMAGE_PATH"
+          if [ -z "$latest" ]; then
+            echo "No suitable tags found for $TARGET"
             exit 1
           fi
 
-          # Filter out unwanted ones and pick latest semver
-          latest=$(echo "$tags" \
-            | grep -Ev 'alpha|beta|dev|rc|latest|next|master|^sha-|^commit-' \
-            | sort -Vr \
-            | head -n1)
-
+          echo "Latest tag: $latest"
           echo "latest=$latest" >> $GITHUB_OUTPUT
 
-      - name: Check if issue already exists
-        id: issue_check
-        run: |
-          latest=$([[ "$TYPE" == "release" ]] && echo "${{ steps.get_release.outputs.latest }}" || echo "${{ steps.get_image.outputs.latest }}")
-          exists=$(gh issue list \
-            --repo "$GH_REPO" \
-            --state all \
-            --search "$NAME $TYPE $latest" \
-            --json number \
-            --jq '.[0].number')
-          echo "latest=$latest" >> $GITHUB_OUTPUT
-          echo "exists=$exists" >> $GITHUB_OUTPUT
+            - name: Check if issue already exists
+              id: issue_check
+              run: |
+                latest=$([[ "$TYPE" == "release" ]] && echo "${{ steps.get_release.outputs.latest }}" || echo "${{ steps.get_image.outputs.latest }}")
+                exists=$(gh issue list \
+                  --repo "$GH_REPO" \
+                  --state all \
+                  --search "$NAME $TYPE $latest" \
+                  --json number \
+                  --jq '.[0].number')
+                echo "latest=$latest" >> $GITHUB_OUTPUT
+                echo "exists=$exists" >> $GITHUB_OUTPUT
 
       - name: Create issue if new
         if: steps.issue_check.outputs.exists == ''
