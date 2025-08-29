@@ -46,7 +46,7 @@ jobs:
     outputs:
       latest: ${{ steps.issue_check.outputs.latest }}
       exists: ${{ steps.issue_check.outputs.exists }}
-      issue_number: ${{ steps.create_issue.outputs.issue_number || '' }}
+      issue_number: ${{ steps.get_issue_number.outputs.issue_number || '' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -149,13 +149,36 @@ jobs:
             --label "$LABELS" \
             --body "$BODY"
 
-          # Get the issue number of the newly created issue
-          ISSUE_NUMBER=$(gh issue list \
-            --repo $GH_REPO \
-            --state open \
-            --search "$NAME $TYPE $latest" \
-            --json number \
-            --jq '.[0].number')
+      - name: Get issue number
+        if: steps.issue_check.outputs.exists == ''
+        id: get_issue_number
+        run: |
+          MAX_RETRIES=10
+          SLEEP_SECONDS=3
+          ISSUE_NUMBER=""
+          latest=${{ steps.issue_check.outputs.latest }}
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            ISSUE_NUMBER=$(gh issue list \
+              --repo "$GH_REPO" \
+              --state open \
+              --search "$NAME $TYPE $latest" \
+              --json number \
+              --jq '.[0].number')
+
+            if [ -n "$ISSUE_NUMBER" ]; then
+              echo "Found issue number: $ISSUE_NUMBER"
+              break
+            fi
+
+            echo "Issue not found yet, retrying in $SLEEP_SECONDS seconds..."
+            sleep $SLEEP_SECONDS
+          done
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "❌ Could not find the newly created issue after $((MAX_RETRIES * SLEEP_SECONDS)) seconds."
+            exit 1
+          fi
 
           echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
