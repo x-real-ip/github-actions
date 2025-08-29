@@ -108,18 +108,18 @@ jobs:
           echo "Latest tag: $latest"
           echo "latest=$latest" >> $GITHUB_OUTPUT
 
-            - name: Check if issue already exists
-              id: issue_check
-              run: |
-                latest=$([[ "$TYPE" == "release" ]] && echo "${{ steps.get_release.outputs.latest }}" || echo "${{ steps.get_image.outputs.latest }}")
-                exists=$(gh issue list \
-                  --repo "$GH_REPO" \
-                  --state all \
-                  --search "$NAME $TYPE $latest" \
-                  --json number \
-                  --jq '.[0].number')
-                echo "latest=$latest" >> $GITHUB_OUTPUT
-                echo "exists=$exists" >> $GITHUB_OUTPUT
+      - name: Check if issue already exists
+        id: issue_check
+        run: |
+          latest=$([[ "$TYPE" == "release" ]] && echo "${{ steps.get_release.outputs.latest }}" || echo "${{ steps.get_image.outputs.latest }}")
+          exists=$(gh issue list \
+            --repo "$GH_REPO" \
+            --state all \
+            --search "$NAME $TYPE $latest" \
+            --json number \
+            --jq '.[0].number')
+          echo "latest=$latest" >> $GITHUB_OUTPUT
+          echo "exists=$exists" >> $GITHUB_OUTPUT
 
       - name: Create issue if new
         if: steps.issue_check.outputs.exists == ''
