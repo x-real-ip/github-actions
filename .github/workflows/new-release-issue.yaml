@@ -172,18 +172,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify image exists
-        run: |
-          latest="${{ needs.check-release.outputs.latest }}"
-          IMAGES="${{ inputs.image }}"
-          for image in $IMAGES; do
-            IMAGE="${image}:${latest}"
-            echo "Checking $IMAGE ..."
-            if ! docker pull "$IMAGE" > /dev/null 2>&1; then
-              echo "Image $IMAGE does not exist in registry"
-              exit 1
-            fi
-          done
+      # - name: Verify image exists
+      #   run: |
+      #     latest="${{ needs.check-release.outputs.latest }}"
+      #     IMAGES="${{ inputs.image }}"
+      #     for image in $IMAGES; do
+      #       IMAGE="${image}:${latest}"
+      #       echo "Checking $IMAGE ..."
+      #       if ! docker pull "$IMAGE" > /dev/null 2>&1; then
+      #         echo "Image $IMAGE does not exist in registry"
+      #         exit 1
+      #       fi
+      #     done
 
       - name: Bump version in Containerfile
         if: inputs.bump_type == 'containerfile'
@@ -203,7 +203,10 @@ jobs:
             kustomize edit set image $image=$image:$latest
           done
 
+      - name: debug
+        run: |
           echo "${{ needs.check-release.outputs.issue_number }}"
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
