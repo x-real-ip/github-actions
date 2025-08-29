@@ -60,6 +60,7 @@ jobs:
         if: env.TYPE == 'release'
         run: |
           RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
+          TARGET="${TARGET#ghcr.io/}"   # remove ghcr.io/
           response=$(curl -s "$RELEASE_API")
           latest=$(echo "$response" | jq -r .tag_name)
           url=$(echo "$response" | jq -r .html_url)
@@ -71,9 +72,9 @@ jobs:
         if: env.TYPE == 'image'
         run: |
           # Extract org/user and image from TARGET (ghcr.io/org/image)
-          TARGET_NO_PREFIX="${TARGET#ghcr.io/}"   # remove ghcr.io/
-          OWNER="${TARGET_NO_PREFIX%%/*}"         # owner = part before first /
-          IMAGE="${TARGET_NO_PREFIX#*/}"          # image = part after first /
+          TARGET="${TARGET#ghcr.io/}"   # remove ghcr.io/
+          OWNER="${TARGET%%/*}"         # owner = part before first /
+          IMAGE="${TARGET#*/}"          # image = part after first /
 
           echo "Owner: $OWNER, Image: $IMAGE"
 
