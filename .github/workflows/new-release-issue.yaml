@@ -161,11 +161,13 @@ jobs:
 
       - name: Verify image exists
         run: |
-          for image in ${{ inputs.image }}; do
-            IMAGE="${image}:${{ needs.check-release.outputs.latest }}"
+          latest="${{ needs.check-release.outputs.latest }}"
+          IMAGES="${{ inputs.image }}"
+          for image in $IMAGES; do
+            IMAGE="${image}:${latest}"
             echo "Checking $IMAGE ..."
-            if ! docker inspect "$IMAGE" > /dev/null 2>&1; then
-              echo "❌ Image $IMAGE does not exist in registry"
+            if ! docker pull "$IMAGE" > /dev/null 2>&1; then
+              echo "Image $IMAGE does not exist in registry"
               exit 1
             fi
           done
