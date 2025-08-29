@@ -27,7 +27,8 @@ on:
         default: "containerfile"
         type: string
       image:
-        description: "Image name(s) to update in kustomization (space-separated)."
+        description:
+          "Image name(s) to update in kustomization (space-separated)."
         required: false
         default: ""
         type: string
@@ -151,6 +152,17 @@ jobs:
       LABELS: update
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify image exists
+        run: |
+          for image in ${{ inputs.image }}; do
+            IMAGE="${image}:${{ needs.check-release.outputs.latest }}"
+            echo "Checking $IMAGE ..."
+            if ! docker inspect "$IMAGE" > /dev/null 2>&1; then
+              echo "❌ Image $IMAGE does not exist in registry"
+              exit 1
+            fi
+          done
 
       - name: Bump version in Containerfile
         if: inputs.bump_type == 'containerfile'
