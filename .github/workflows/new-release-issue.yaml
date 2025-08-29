@@ -46,6 +46,7 @@ jobs:
     outputs:
       latest: ${{ steps.issue_check.outputs.latest }}
       exists: ${{ steps.issue_check.outputs.exists }}
+      issue_number: ${{ steps.create_issue.outputs.issue_number || '' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -214,7 +215,7 @@ jobs:
             Automated bump of ${{ inputs.name }} to ${{
             needs.check-release.outputs.latest }}
 
-            Related issue: #${{ steps.create_issue.outputs.issue_number }}
+            Related issue: #${{ needs.check-release.outputs.issue_number }}
           commit-message:
             Bump ${{ inputs.name }} to ${{ needs.check-release.outputs.latest }}
           assignees: ${{ env.ASSIGNEES }}
