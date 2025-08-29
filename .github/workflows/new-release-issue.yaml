@@ -130,6 +130,7 @@ jobs:
 
       - name: Create issue if new
         if: steps.issue_check.outputs.exists == ''
+        id: create_issue
         run: |
           latest=${{ steps.issue_check.outputs.latest }}
           url=${{ steps.get_release.outputs.url || '' }}
