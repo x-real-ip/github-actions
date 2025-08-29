@@ -26,6 +26,11 @@ on:
         required: false
         default: "containerfile"
         type: string
+      image:
+        description: "Image name(s) to update in kustomization (space-separated)."
+        required: false
+        default: ""
+        type: string
     secrets:
       PAT:
         description: "Personal access token for PR creation"
@@ -140,6 +145,17 @@ jobs:
           latest="${{ needs.check-release.outputs.latest }}"
           echo "Latest version: $latest"
           sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" Containerfile
+
+      - name: Bump version in Kustomization
+        if: inputs.bump_type == 'kustomize'
+        uses: imranismail/setup-kustomize@v2
+      - run: |
+          latest="${{ needs.check-release.outputs.latest }}"
+          cd manifests/${{ inputs.name }}/kustomize/overlay
+          for image in ${{ inputs.image }}; do
+            echo "Updating $image to version $latest"
+            kustomize edit set image $image=$image:$latest
+          done
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
