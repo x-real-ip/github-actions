@@ -38,7 +38,8 @@ on:
         default: ""
         type: string
       exclude_tags:
-        description: "Comma-separated list of tag patterns to exclude (optional)."
+        description:
+          "Comma-separated list of tag patterns to exclude (optional)."
         required: false
         default: "alpha,beta,dev,rc,latest,next,master,sha,commit,test"
         type: string
@@ -112,6 +113,10 @@ jobs:
             exit 1
           fi
 
+          # Log all tags found
+          echo "==== Extracted tags ===="
+          echo "$tags"
+
           # Convert comma-separated lists to grep patterns
           EXCLUDE="${{ inputs.exclude_tags }}"
           INCLUDE="${{ inputs.include_tags }}"
@@ -139,6 +144,10 @@ jobs:
             done
             filtered_tags="$include_filtered"
           fi
+
+          # Show filtered result
+          echo "==== Final filtered tags ===="
+          echo "$filtered_tags"
 
           # Pick the last (latest) version
           latest=$(echo "$filtered_tags" | sort -V | tail -n1)
