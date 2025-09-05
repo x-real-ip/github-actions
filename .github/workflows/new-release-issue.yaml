@@ -32,6 +32,16 @@ on:
         required: false
         default: ""
         type: string
+      include_tags:
+        description: "Comma-separated list of allowed tag patterns (optional)."
+        required: false
+        default: ""
+        type: string
+      exclude_tags:
+        description: "Comma-separated list of tag patterns to exclude (optional)."
+        required: false
+        default: "alpha,beta,dev,rc,latest,next,master,sha,commit,test"
+        type: string
     secrets:
       PAT:
         description: "Personal access token for PR creation"
@@ -102,11 +112,36 @@ jobs:
             exit 1
           fi
 
-          # Filter unwanted tags, pick latest semver
-          latest=$(echo "$tags" \
-            | grep -Ev 'alpha|beta|dev|rc|latest|next|master|sha|commit|test' \
-            | sort -V \
-            | tail -n1)
+          # Convert comma-separated lists to grep patterns
+          EXCLUDE="${{ inputs.exclude_tags }}"
+          INCLUDE="${{ inputs.include_tags }}"
+
+          echo "Exclude filters: $EXCLUDE"
+          echo "Include filters: $INCLUDE"
+
+          # Apply filters
+          filtered_tags=$(echo "$tags" | sort -V)
+
+          # Exclude unwanted tags
+          if [ -n "$EXCLUDE" ]; then
+            IFS=',' read -ra patterns <<< "$EXCLUDE"
+            for pattern in "${patterns[@]}"; do
+              filtered_tags=$(echo "$filtered_tags" | grep -v -i "$pattern" || true)
+            done
+          fi
+
+          # Include only specific tags (if include_tags is defined)
+          if [ -n "$INCLUDE" ]; then
+            include_filtered=""
+            IFS=',' read -ra patterns <<< "$INCLUDE"
+            for pattern in "${patterns[@]}"; do
+              include_filtered+=$(echo "$filtered_tags" | grep -i "$pattern"; echo)
+            done
+            filtered_tags="$include_filtered"
+          fi
+
+          # Pick the last (latest) version
+          latest=$(echo "$filtered_tags" | sort -V | tail -n1)
 
           if [ -z "$latest" ]; then
             echo "No suitable tags found for $TARGET after filtering"
