@@ -96,17 +96,14 @@ jobs:
           echo "Owner: $OWNER, Image: $IMAGE"
 
           # Try /orgs/ first
-          resp=$(gh api -H "Accept: application/vnd.github.v3+json" \
-            "/orgs/$OWNER/packages/container/$IMAGE/versions" 2>/dev/null) || true
+          tags=$(gh api --paginate -H "Accept: application/vnd.github.v3+json" \
+            "/orgs/$OWNER/packages/container/$IMAGE/versions" --jq '.[].metadata.container.tags[]' 2>/dev/null) || true
 
           # If empty or Not Found, fallback to /users/
-          if [ -z "$resp" ] || [[ "$resp" == *"Not Found"* ]]; then
-            resp=$(gh api -H "Accept: application/vnd.github.v3+json" \
-              "/users/$OWNER/packages/container/$IMAGE/versions")
+          if [ -z "$tags" ] || [[ "$tags" == *"Not Found"* ]]; then
+            tags=$(gh api --paginate -H "Accept: application/vnd.github.v3+json" \
+              "/users/$OWNER/packages/container/$IMAGE/versions" --jq '.[].metadata.container.tags[]')
           fi
-
-          # Extract all tags
-          tags=$(echo "$resp" | jq -r '.[].metadata.container.tags[]')
 
           if [ -z "$tags" ]; then
             echo "No tags found for $TARGET"
