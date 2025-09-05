@@ -116,6 +116,8 @@ jobs:
           # Log all tags found
           echo "==== Extracted tags ===="
           echo "$tags"
+          echo "========================"
+          echo ""
 
           # Convert comma-separated lists to grep patterns
           EXCLUDE="${{ inputs.exclude_tags }}"
@@ -148,6 +150,8 @@ jobs:
           # Show filtered result
           echo "==== Final filtered tags ===="
           echo "$filtered_tags"
+          echo "============================="
+          echo ""
 
           # Pick the last (latest) version
           latest=$(echo "$filtered_tags" | sort -V | tail -n1)
