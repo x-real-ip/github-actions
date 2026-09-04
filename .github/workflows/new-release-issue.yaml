@@ -8,12 +8,13 @@ on:
         required: true
         type: string
       type:
-        description: "What to check: 'release' or 'image'."
+        description: "What to check: 'release', 'image' or 'docker'."
         required: true
         type: string
       target:
         description:
-          "Target repo (org/repo) for releases or ghcr.io/org/image for images."
+          "Target repo (org/repo) for releases, ghcr.io/org/image for images or
+          org/image for docker (Docker Hub)."
         required: true
         type: string
       bump:
@@ -84,8 +85,7 @@ jobs:
             exit 1
           fi
 
-      - name: Get latest image tag
-        id: get_image
+      - name: Collect tags from GitHub Packages
         if: env.TYPE == 'image'
         run: |
           # Extract org/user and image from TARGET (ghcr.io/org/image)
@@ -104,6 +104,36 @@ jobs:
             tags=$(gh api --paginate -H "Accept: application/vnd.github.v3+json" \
               "/users/$OWNER/packages/container/$IMAGE/versions" --jq '.[].metadata.container.tags[]')
           fi
+
+          echo "$tags" > tags.txt
+
+      # The GitHub Packages API pages 30 versions at a time, which exhausts the
+      # GITHUB_TOKEN rate limit on images with a large tag history (linuxserver
+      # publishes a nightly plus per-arch aliases every day). Docker Hub returns
+      # 100 newest-first per page, so a handful of pages is enough.
+      - name: Collect tags from Docker Hub
+        if: env.TYPE == 'docker'
+        run: |
+          TARGET="${TARGET#docker.io/}"
+
+          echo "Docker Hub repository: $TARGET"
+
+          url="https://hub.docker.com/v2/repositories/${TARGET}/tags?page_size=100&ordering=last_updated"
+          pages=0
+          : > tags.txt
+
+          while [ -n "$url" ] && [ "$url" != "null" ] && [ "$pages" -lt 5 ]; do
+            response=$(curl -fsSL "$url")
+            echo "$response" | jq -r '.results[].name' >> tags.txt
+            url=$(echo "$response" | jq -r '.next')
+            pages=$((pages + 1))
+          done
+
+      - name: Select latest tag
+        id: get_image
+        if: env.TYPE != 'release'
+        run: |
+          tags=$(grep -v '^$' tags.txt || true)
 
           if [ -z "$tags" ]; then
             echo "No tags found for $TARGET"
@@ -130,7 +160,7 @@ jobs:
           if [ -n "$EXCLUDE" ]; then
             IFS=',' read -ra patterns <<< "$EXCLUDE"
             for pattern in "${patterns[@]}"; do
-              filtered_tags=$(echo "$filtered_tags" | grep -v -i "$pattern" || true)
+              filtered_tags=$(echo "$filtered_tags" | grep -v -i -- "$pattern" || true)
             done
           fi
 
@@ -139,7 +169,7 @@ jobs:
             include_filtered=""
             IFS=',' read -ra patterns <<< "$INCLUDE"
             for pattern in "${patterns[@]}"; do
-              include_filtered+=$(echo "$filtered_tags" | grep -i "$pattern"; echo)
+              include_filtered+=$(echo "$filtered_tags" | grep -i -- "$pattern"; echo)
             done
             filtered_tags="$include_filtered"
           fi
@@ -151,7 +181,7 @@ jobs:
           echo ""
 
           # Pick the last (latest) version
-          latest=$(echo "$filtered_tags" | sort -V | tail -n1)
+          latest=$(echo "$filtered_tags" | grep -v '^$' | sort -V | tail -n1)
 
           if [ -z "$latest" ]; then
             echo "No suitable tags found for $TARGET after filtering"
