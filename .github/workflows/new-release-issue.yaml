@@ -27,6 +27,11 @@ on:
         required: false
         default: "containerfile"
         type: string
+      containerfile:
+        description: "Path to the Containerfile to bump."
+        required: false
+        default: "Containerfile"
+        type: string
       image:
         description:
           "Image name(s) to update in kustomization (space-separated)."
@@ -285,10 +290,30 @@ jobs:
 
       - name: Bump version in Containerfile
         if: inputs.bump_type == 'containerfile'
+        env:
+          CONTAINERFILE: ${{ inputs.containerfile }}
+          IMAGES: ${{ inputs.image }}
         run: |
           latest="${{ needs.check-release.outputs.latest }}"
           echo "Latest version: $latest"
-          sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" Containerfile
+
+          if [ -z "$IMAGES" ]; then
+            # Without an image every FROM line is rewritten, which only holds
+            # for a single-stage build. Multi-stage callers pass the image so
+            # the other stages keep their own tag.
+            sed -i -E "s#^(FROM .+):[0-9A-Za-z._-]+#\1:${latest}#" "$CONTAINERFILE"
+          else
+            for image in $IMAGES; do
+              echo "Updating $image in $CONTAINERFILE"
+              sed -i -E "s#^(FROM ${image}):[0-9A-Za-z._-]+#\1:${latest}#" "$CONTAINERFILE"
+            done
+          fi
+
+          if git diff --quiet -- "$CONTAINERFILE"; then
+            echo "No change: $CONTAINERFILE is already at $latest, or no FROM line matched the image"
+          else
+            git diff -- "$CONTAINERFILE"
+          fi
 
       - name: Setup Kustomize
         if: inputs.bump_type == 'kustomize'
@@ -303,6 +328,13 @@ jobs:
             echo "Updating $image to version $latest"
             kustomize edit set image $image=$image:$latest
           done
+
+          cd "$GITHUB_WORKSPACE"
+          if git diff --quiet; then
+            echo "No change: the overlay already pins $latest, so no pull request follows"
+          else
+            git diff
+          fi
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
