@@ -29,11 +29,11 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build image
         id: build-image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: ghcr.io/${{ github.repository }}
           platforms: ${{ inputs.platforms }}
@@ -45,7 +45,7 @@ jobs:
 
       - name: Push to ghcr.io
         id: push-to-ghcr
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@v3
         if: ${{ inputs.push == true }}
         with:
           image: ${{ env.IMAGE_NAME }}

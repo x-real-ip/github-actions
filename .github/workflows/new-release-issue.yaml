@@ -273,7 +273,7 @@ jobs:
       ASSIGNEES: x-real-ip
       LABELS: update
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Verify image exists
         run: |
@@ -317,7 +317,7 @@ jobs:
 
       - name: Setup Kustomize
         if: inputs.bump_type == 'kustomize'
-        uses: imranismail/setup-kustomize@v2
+        uses: imranismail/setup-kustomize@v3
 
       - name: Bump version in Kustomization
         if: inputs.bump_type == 'kustomize'
@@ -337,7 +337,7 @@ jobs:
           fi
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.PAT }}
           branch:
