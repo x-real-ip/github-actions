@@ -63,7 +63,7 @@ jobs:
     outputs:
       latest: ${{ steps.issue_check.outputs.latest }}
       exists: ${{ steps.issue_check.outputs.exists }}
-      issue_number: ${{ steps.get_issue_number.outputs.issue_number || '' }}
+      issue_number: ${{ steps.create_issue.outputs.issue_number || '' }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -79,16 +79,28 @@ jobs:
         run: |
           TARGET="${TARGET#ghcr.io/}"   # remove ghcr.io/
           RELEASE_API="https://api.github.com/repos/$TARGET/releases/latest"
-          response=$(curl -s "$RELEASE_API")
-          latest=$(echo "$response" | jq -r .tag_name)
-          url=$(echo "$response" | jq -r .html_url)
-          echo "latest=$latest" >> $GITHUB_OUTPUT
-          echo "url=$url" >> $GITHUB_OUTPUT
 
-          if [[ -z "$latest" || "$latest" == "null" ]]; then
-            echo "Release is null"
+          # Anonymous api.github.com calls share a 60/hour budget per runner
+          # egress IP, so a wide matrix burns through it and gets a rate-limit
+          # body instead of a release. GITHUB_TOKEN raises that to 1000/hour,
+          # and --retry rides out the occasional 5xx.
+          response=$(curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$RELEASE_API")
+
+          latest=$(echo "$response" | jq -r '.tag_name // empty')
+          url=$(echo "$response" | jq -r '.html_url // empty')
+
+          if [ -z "$latest" ]; then
+            echo "::error::$RELEASE_API returned no tag_name"
+            echo "$response"
             exit 1
           fi
+
+          echo "latest=$latest" >> $GITHUB_OUTPUT
+          echo "url=$url" >> $GITHUB_OUTPUT
 
       - name: Collect tags from GitHub Packages
         if: env.TYPE == 'image'
@@ -128,7 +140,8 @@ jobs:
           : > tags.txt
 
           while [ -n "$url" ] && [ "$url" != "null" ] && [ "$pages" -lt 5 ]; do
-            response=$(curl -fsSL "$url")
+            response=$(curl -fsSL --retry 5 --retry-delay 5 \
+              --retry-all-errors "$url")
             echo "$response" | jq -r '.results[].name' >> tags.txt
             url=$(echo "$response" | jq -r '.next')
             pages=$((pages + 1))
@@ -213,8 +226,8 @@ jobs:
         if: steps.issue_check.outputs.exists == ''
         id: create_issue
         run: |
-          latest=${{ steps.issue_check.outputs.latest }}
-          url=${{ steps.get_release.outputs.url || '' }}
+          latest="${{ steps.issue_check.outputs.latest }}"
+          url="${{ steps.get_release.outputs.url || '' }}"
 
           BODY="### New $NAME $TYPE
 
@@ -223,44 +236,25 @@ jobs:
           [View release notes]($url)"
 
           # Create the issue
-          gh issue create \
+          output=$(gh issue create \
             --title "New $NAME $TYPE: $latest" \
             --assignee "$ASSIGNEES" \
             --label "$LABELS" \
-            --body "$BODY"
+            --body "$BODY")
+          echo "$output"
 
-      - name: Get issue number
-        if: steps.issue_check.outputs.exists == ''
-        id: get_issue_number
-        run: |
-          MAX_RETRIES=10
-          SLEEP_SECONDS=3
-          ISSUE_NUMBER=""
-          latest=${{ steps.issue_check.outputs.latest }}
+          # Read the number off the URL gh just printed. Searching for the
+          # issue instead raced the issue search index, which lags creation by
+          # longer than any retry loop here is worth waiting.
+          issue_number=$(printf '%s\n' "$output" \
+            | sed -nE 's#.*/issues/([0-9]+).*#\1#p' | tail -n1)
 
-          for i in $(seq 1 $MAX_RETRIES); do
-            ISSUE_NUMBER=$(gh issue list \
-              --repo "$GH_REPO" \
-              --state open \
-              --search "$NAME $TYPE $latest" \
-              --json number \
-              --jq '.[0].number')
-
-            if [ -n "$ISSUE_NUMBER" ]; then
-              echo "Found issue number: $ISSUE_NUMBER"
-              break
-            fi
-
-            echo "Issue not found yet, retrying in $SLEEP_SECONDS seconds..."
-            sleep $SLEEP_SECONDS
-          done
-
-          if [ -z "$ISSUE_NUMBER" ]; then
-            echo "❌ Could not find the newly created issue after $((MAX_RETRIES * SLEEP_SECONDS)) seconds."
+          if [ -z "$issue_number" ]; then
+            echo "::error::gh issue create reported no issue URL"
             exit 1
           fi
 
-          echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
+          echo "issue_number=$issue_number" >> $GITHUB_OUTPUT
 
   bump-version:
     needs: check-release
